@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polynomial Derivative Calculator</title>
+
+    <!-- Bootstrap -->
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.1.1/chartjs-plugin-zoom.min.js"></script>
+
+    <style>
+        /* Your existing styles here */
+                body {
+            font-family: Arial, sans-serif;   
+            height: 100vh;
+        
+            background-color: #f4f4f4;
+        }
+        button {
+    margin-top: auto;
+
+    font-size: 15px;
+    padding: 5px 10px;
+    font-weight: 500;
+    background-color: #DCC4F8;
+    color: #000000;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+        .widget-container {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            height: 100vh;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .calculator-widget {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .calculator {
+            max-width: 600px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .calculator-result {
+            max-width: 600px;
+        
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .calculator h2 {
+            text-align: center;
+        }
+
+        .input-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .input-container .toggle-sign {
+            margin-right: 10px;
+        }
+
+        .input-field-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .input-field {
+            padding: 5px;
+            margin-right: 5px;
+            width: 80px;
+            text-align: center;
+        }
+
+        .button-container {
+            text-align: center;
+        }
+
+        #polynomial {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .buttonforCalculate {
+            background-color: #DCC4F8;
+            color: #000000;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #resultWidget {
+    max-width: 800px;
+    margin: 0 auto; /* Center the result card horizontally */
+ 
+}
+
+.chart-axis-y {
+    font-weight: bold; /* Bold font for y-axis */
+    color: black; /* Black color for y-axis */
+}
+
+
+        #resultWidget canvas {
+            max-width: 600px;
+            max-height: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-widget">
+        <div class="calculator">
+            <h2>Polynomial Graph Calculator</h2>
+            <div id="terms">
+                <div class="input-container">
+                    <button class="toggle-sign" onclick="toggleSign()">+</button>
+                    <div class="input-field-container">
+                        <input type="text" id="coeffInput" placeholder="Coefficient" class="input-field">
+                        <span class="input-separator">X<sup>^</sup> </span>
+                        <input type="text" id="powerInput" placeholder="Power" class="input-field">
+                    </div>
+                </div>
+                <div class="button-container">
+                    <button onclick="addTermController.addTerm()">Add Term</button>
+                    <button onclick="addTermController.clearPolynomial()">Clear Polynomial</button>
+                </div>
+            </div>
+            <div id="polynomial"></div>
+            <button class="buttonforCalculate" onclick="calculateDerivative.calculateDerivative()">Calculate Velocity & Acceleration</button>
+        </div>
+    </div>
+
+    <div class="hidden calculator-result" id="resultWidget">
+        <h2 class="hidden">Results</h2>
+        <div id="positionEquation" class="equation"></div>
+        <div id="velocityEquation" class="equation"></div>
+        <div id="accelerationEquation" class="equation"></div>
+        <canvas class="hidden" id="functionChart"></canvas>
+        <button class="reset-zoom-button hidden" onclick="resetZoom(calculateDerivative.chartInstance)">Reset Zoom</button>
+    </div>
+
+    <script>
+        class AddTermController {
+            constructor() {
+                this.terms = [];
+            }
+
+            addTerm() {
+                let coeff = document.getElementById("coeffInput").value.trim();
+                let power = document.getElementById("powerInput").value.trim();
+                let sign = document.querySelector("#terms button").textContent;
+
+                if (coeff === '' || power === '') {
+                    alert("Please fill in both coefficient and power for the X term.");
+                    return;
+                }
+
+                let term = (this.terms.length === 0 ? '' : sign) + coeff + "x<sup>" + power + "</sup>";
+                // Adjust sign for the first term
+                if (this.terms.length === 0 && sign === '-') {
+                    term = '-' + term;
+                }
+                this.terms.push(term);
+
+                // Clear inputs
+                document.getElementById("coeffInput").value = '';
+                document.getElementById("powerInput").value = '';
+
+                this.updatePolynomialDisplay();
+            }
+
+            updatePolynomialDisplay() {
+                let polynomialDisplay = document.getElementById("polynomial");
+                let polynomialString = this.generatePolynomialString();
+                // Wrap the polynomial string within a span element
+                polynomialDisplay.innerHTML = "Polynomial: " + polynomialString;
+            }
+
+            generatePolynomialString() {
+                return this.terms.join(" ");
+            }
+
+            clearPolynomial() {
+                this.terms = [];
+                this.updatePolynomialDisplay();
+            }
+        }
+
+        class CalculateDerivative {
+    constructor() {
+        this.chartInstance = null; // Initialize chart instance
+        this.resetZoomButton = document.querySelector('.reset-zoom-button'); // Get the reset zoom button element
+   
+    }
+
+    calculateDerivative() {
+        const polynomialTerms = addTermController.terms;
+
+        // Generate the polynomial equation
+        const polynomialEquation = addTermController.generatePolynomialString();
+
+        // Calculate the derivative of the polynomial to get the velocity equation
+        const velocityEquation = this.calculateDerivativeStrings(polynomialEquation);
+
+        // Calculate the derivative of the velocity equation to get the acceleration equation
+        const accelerationEquation = this.calculateDerivativeStrings(velocityEquation);
+
+        // Update the equations and the chart
+        this.updateEquations(polynomialEquation, velocityEquation, accelerationEquation);
+        this.updateChart(polynomialTerms);
+        this.resetZoomButton.classList.remove('hidden');
+    }
+
+    calculateDerivativeString(terms) {
+        const derivativeTerms = [];
+        const polynomialTerms = addTermController.terms;
+        polynomialTerms.forEach(term => {
+            const parts = term.split('x<sup>');
+            const coefficient = parseFloat(parts[0]);
+            const power = parseFloat(parts[1].split('</sup>')[0]);
+            if (power !== 0) {
+                const newCoefficient = coefficient * power;
+                const newPower = power - 1;
+                    if (newPower !== 0) {
+                    derivativeTerms.push(`${newCoefficient}x<sup>${newPower}</sup>`);
+                } else {
+                    derivativeTerms.push(`${newCoefficient}`);
+                }
+            }
+        });
+        
+        return derivativeTerms.join(" + ");
+    }
+    calculateDerivativeStrings(equation) {
+    const derivativeTerms = [];
+    // Split the equation properly to handle negative terms
+    const terms = equation.split(/(?=\+|-)/);
+    const termMap = new Map(); // Use a map to store coefficients for each power
+    let isFirstTerm = true; // Initialize isFirstTerm flag
+    terms.forEach(term => {
+        // Check if term is not empty
+        if (term.trim() !== '') {
+            const parts = term.split('x<sup>');
+            const coefficient = parseFloat(parts[0]);
+            let power = 0; // Initialize power to 0
+            if (parts.length > 1) {
+                power = parseFloat(parts[1].split('</sup>')[0]);
+            }
+            if (!isNaN(coefficient) && !isNaN(power)) {
+                // Add or update coefficient for the corresponding power
+                termMap.set(power, (termMap.get(power) || 0) + coefficient);
+                isFirstTerm = true; // Reset isFirstTerm for each new power
+            }
+        }
+    });
+    // Iterate over the map to generate derivative terms
+    termMap.forEach((coefficient, power) => {
+        if (power > 1) {
+            const newCoefficient = Math.abs(coefficient) * power;
+            const newPower = power - 1;
+            const sign = coefficient >= 0 ? (isFirstTerm ? '' : '+') : '-';
+            const termString = `${sign}${newCoefficient !== 0 ? newCoefficient : ''}x<sup>${newPower}</sup>`;
+            derivativeTerms.push(termString.trim()); // Trim to remove leading space
+            isFirstTerm = false; // Update isFirstTerm
+        } else if (power === 1) {
+            const sign = coefficient >= 0 ? (isFirstTerm ? '' : '+') : '-';
+            const termString = `${sign}${Math.abs(coefficient) !== 0 ? Math.abs(coefficient) : ''}`;
+            derivativeTerms.push(termString.trim()); // Trim to remove leading space
+            isFirstTerm = false; // Update isFirstTerm
+        }
+    });
+    return derivativeTerms.join(' ');
+}
+  
+    updateEquations(polynomialEquation, velocityEquation, accelerationEquation) {
+        // Update the equation display
+        document.getElementById('positionEquation').innerHTML = `<strong>Position Equation:</strong> f(x) = ${polynomialEquation}`;
+        document.getElementById('velocityEquation').innerHTML = `<strong>Velocity Equation:</strong> v(x) = ${velocityEquation}`;
+        document.getElementById('accelerationEquation').innerHTML = `<strong>Acceleration Equation:</strong> a(x) = ${accelerationEquation}`;
+    }
+
+    generatePolynomialString(terms) {
+        let polynomialString = '';
+        terms.forEach(term => {
+            polynomialString += `${term} + `;
+        });
+        // Remove the trailing " + " at the end
+        polynomialString = polynomialString.slice(0, -3);
+        return polynomialString;
+    }
+
+    updateChart(polynomialTerms) {
+        // Destroy existing chart instance if it exists
+        if (this.chartInstance) {
+            this.chartInstance.destroy();
+        }
+
+        // Arrays to store the data for all equations
+        let positionData = [];
+        let velocityData = [];
+        let accelerationData = [];
+
+        // Iterate over each term of the polynomial
+        for (let x = -5; x <= 5; x++) {
+            let position = 0;
+            let velocity = 0;
+            let acceleration = 0;
+            polynomialTerms.forEach(term => {
+                const parts = term.split('x<sup>');
+                const coefficient = parseFloat(parts[0]);
+                const power = parseFloat(parts[1].split('</sup>')[0]);
+                // Calculate the value for each equation
+                position += coefficient * Math.pow(x, power);
+                if (power >= 1) { // Change the condition to handle constant terms as well
+                    velocity += coefficient * power * Math.pow(x, power - 1);
+                    if (power > 1) {
+                        acceleration += coefficient * power * (power - 1) * Math.pow(x, power - 2);
+                    }
+                } else {
+                    // If power is less than 1, it's a constant term, so add it directly to velocity
+                    velocity += coefficient;
+                }
+            });
+            // Push the calculated values to the corresponding arrays
+            positionData.push(position);
+            velocityData.push(velocity);
+            accelerationData.push(acceleration);
+        }
+
+        // Update the chart
+        const ctx = document.getElementById('functionChart').getContext('2d');
+        this.chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array.from({ length: 11 }, (_, index) => index - 5),
+                datasets: [
+                    {
+                        label: 'Position',
+                        data: positionData,
+                        borderColor: 'red',
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: 'Velocity',
+                        data: velocityData,
+                        borderColor: 'green',
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: 'Acceleration',
+                        data: accelerationData,
+                        borderColor: 'blue',
+                        tension: 0.1,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+    scales: {
+        x: {
+            type: 'linear',
+            position: 'bottom'
+        },
+        y: {
+            type: 'linear',
+            position: 'left',
+            grid: {
+                color: 'black', // Set color to black for y-axis grid lines
+                drawTicks: {
+                    // Callback to customize grid line appearance
+                    callback: function(context) {
+                        // Only modify the line at y-axis 0
+                        if (context.tick.value === 0) {
+                            return {
+                                lineWidth: '8', // Set line width for y-axis grid line at 0
+                                color: 'black' // Set color to black for y-axis grid line at 0
+                            };
+                        }
+                    }
+                }
+            },
+            ticks: {
+                font: {
+                    weight: 'bold' // Set font weight to bold for y-axis ticks
+                }
+            }
+        }
+    },
+    maintainAspectRatio: false,
+    plugins: {
+        zoom: {
+            pan: {
+                enabled: true, // Enable panning
+                mode: 'xy', // Allow panning in both x and y directions
+            },
+            zoom: {
+                wheel: {
+                    enabled: true, // Enable zooming with mouse wheel
+                },
+                pinch: {
+                    enabled: true // Enable zooming with pinch gestures on touch devices
+                },
+                mode: 'xy', // Allow zooming in both x and y directions
+            }
+        },
+        legend: {
+            position: 'bottom'
+        }
+    }
+}
+
+        });
+
+        // Show the result widget
+        document.getElementById('resultWidget').classList.remove('hidden');
+    }
+}
+function resetZoom(chartInstance) {
+    console.log("Resetting zoom...");
+    if (chartInstance) {
+        console.log("Chart instance found:", chartInstance);
+        chartInstance.resetZoom(); // Reset the zoom to the initial state
+    } else {
+        console.log("Chart instance not found!");
+    }
+}
+
+
+        const addTermController = new AddTermController();
+        const calculateDerivative = new CalculateDerivative();
+
+        
+
+        function toggleSign() {
+            let signButton = document.querySelector("#terms button");
+            if (signButton.textContent === "+") {
+                signButton.textContent = "-";
+            } else {
+                signButton.textContent = "+";
+            }
+        }
+    </script>
+</body>
+</html>
